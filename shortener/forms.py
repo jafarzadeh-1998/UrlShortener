@@ -29,4 +29,5 @@ class LoginForm(forms.Form):
             pass
         if not user:
             raise ValidationError("Username or Password is invalid.")
+        self.cleaned_data['user'] = user
         return password
