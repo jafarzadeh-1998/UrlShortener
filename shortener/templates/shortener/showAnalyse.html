@@ -1,0 +1,46 @@
+{% extends './base.html' %}
+{% block title %} Analyse {% endblock title %}
+
+{% block content %}
+    <form method="POST">
+        {% csrf_token %}
+        {{form.as_p}}
+        <button type="submit"> Analyse </button>
+    </form>
+
+    {% if url_total != None %}
+        <h1> Resault</h1>
+        <h4>total visit: {{ url_total }} </h4><br>
+        <h5>visits per each agent:</h5>
+        {% for agent in url_agents %}
+            <ul>
+                <li>{{ agent.user_agent }} : {{ agent.count }}</li>
+            </ul>
+        {% endfor %}
+        <br>
+        <h5>visits per each browser :</h5>
+        {% for browser in url_browsers %}
+            <ul>
+                <li>{{ browser.browser }} : {{ browser.count }}</li>
+            </ul>
+        {% endfor %}
+    {% endif %}
+    <hr>
+    {% if user_total != None %}
+        <h1> Resault</h1>
+        <h4>total visit: {{ user_total }} </h4><br>
+        <h5>visits per each agent:</h5>
+        {% for agent in user_agents %}
+            <ul>
+                <li>{{ agent.user_agent }} : {{ agent.count }}</li>
+            </ul>
+        {% endfor %}
+        <br>
+        <h5>visits per each browser :</h5>
+        {% for browser in user_browsers %}
+            <ul>
+                <li>{{ browser.browser }} : {{ browser.count }}</li>
+            </ul>
+        {% endfor %}
+    {% endif %}
+{% endblock content %}

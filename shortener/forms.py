@@ -99,4 +99,23 @@ class UrlForm(forms.ModelForm):
         self.cleaned_data['short_url'] = data
         return suggested_url
 
+class ShowResultForm(forms.Form):
+    short_url = forms.CharField(max_length=127, required=True)
+    DURATIONS=(
+        ("today", "Today"),
+        ("day",   "Day"),
+        ("week",  "Week"),
+        ("month", "Month"),
+    )
+    duration = forms.ChoiceField(choices=DURATIONS, required=True)
+
+    def __init__(self, user=None, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_short_url(self):
+        data = self.cleaned_data["short_url"]
+        if not self.user.url_set.filter(short_url__icontains=data).count():
+            raise ValidationError("This Short Url doesn't exist.")
+        return data
     

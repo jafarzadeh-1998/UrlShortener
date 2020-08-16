@@ -2,6 +2,10 @@ from django.shortcuts import render, HttpResponseRedirect, reverse
 from django.views import generic
 from django.contrib.auth import login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
+from django.middleware import cache
+
+import datetime
 
 from . import forms, models
 
@@ -57,10 +61,67 @@ class CreateShortUrl(LoginRequiredMixin, generic.FormView):
 
 def Redirect(request, short_url):
     try:
-        service = models.URL.objects.get(short_url=short_url)
-        url = service.full_url
-        if not url.startswith('http://') and not url.startswith('https://'):
-            url = 'http://{}'.format(url)
-        return HttpResponseRedirect(url)
+        url = models.URL.objects.get(short_url=short_url)
+        full_url = url.full_url
+        if not full_url.startswith('http://') and not full_url.startswith('https://'):
+            full_url = 'http://{}'.format(full_url)
+        history = models.UrlHistory.create(models.UrlHistory, url=url, request=request)
+        history.save()
+        return HttpResponseRedirect(full_url)
     except Exception as e:
         return HttpResponseRedirect('/')
+    
+class Analyse( generic.FormView):
+    template_name = "shortener/showAnalyse.html"
+    form_class = forms.ShowResultForm
+    login_url = "/login"
+
+    def get_form_kwargs(self):
+        kwargs = super(Analyse, self).get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def form_invalid(self, form):
+        print(form.errors)
+        return super().form_invalid(form)
+
+    def history(self, short_url, duration):
+        query = models.UrlHistory.objects.filter(url__short_url=short_url)
+        startDate = None        
+        today = datetime.date.today()
+        if duration == "today":
+            return query.filter(pub_date=today)
+        elif duration == "day":
+            startDate = today - datetime.timedelta(days=1)
+        elif duration == "week":
+            startDate = today - datetime.timedelta(weeks=1)
+        elif duration == "month":
+            startDate = today - datetime.timedelta(days=30)
+        
+        return query.filter(pub_date__gte=startDate).exclude(pub_date=today)
+
+    def getSubQueryWithHashcode(self, query, col):
+        result = []
+        for q in query.values(col, 'hashcode').distinct():            
+            check = False
+            for r in result:
+                if q[col] == r[col]:
+                    r['count'] += 1
+                    check = True
+                    break
+            if not check:
+                result.append({col:q[col], 'count':1})
+        return result
+
+    def form_valid(self, form):
+        self.success_url = self.request.path_info
+        query = self.history(form.cleaned_data['short_url'], form.cleaned_data['duration'])
+        context = self.get_context_data()
+        context["url_total"]  = query.count()
+        context["url_agents"]  = query.values('user_agent').annotate(count=Count('user_agent'))
+        context["url_browsers"] = query.values('browser').annotate(count=Count('browser'))
+                
+        context['user_total'] = query.values('hashcode').count()
+        context['user_agents'] = self.getSubQueryWithHashcode(query, 'user_agent')
+        context['user_browsers'] = self.getSubQueryWithHashcode(query, 'browser')
+        return render(request=self.request, template_name=self.template_name, context=context)
