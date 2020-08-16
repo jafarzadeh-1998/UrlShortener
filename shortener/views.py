@@ -71,7 +71,7 @@ def Redirect(request, short_url):
     except Exception as e:
         return HttpResponseRedirect('/')
     
-class Analyse( generic.FormView):
+class Analyse(LoginRequiredMixin, generic.FormView):
     template_name = "shortener/showAnalyse.html"
     form_class = forms.ShowResultForm
     login_url = "/login"
